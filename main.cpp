@@ -385,24 +385,6 @@ void undo_move(board_t board, move_t mov, int player) {
 	board[min_from_move[mov]] -= POW_THREE[maxb] * play_id;
 }
 
-//mcnode_t* pick_uct_node(mcnode_t* root) {
-//	mcnode_t* best = root->child;
-//	mcnode_t* iter = best;
-//
-//	float lower = best->upper;
-//
-//	while (iter->next) {
-//		iter = iter->next;
-//		float logpvis = std::sqrt(log2_32(iter->parent->visits + 1));
-//		float lower2 = iter->mean - C * logpvis * iter->invsqrtvisits;
-//		if (lower2 > lower) {
-//			lower = lower2;
-//			best = iter;
-//		}
-//	}
-//	return best;
-//}
-
 mcnode_t* pick_uct_node(mcnode_t* root) {
 	mcnode_t* best = root->child;
 	mcnode_t* iter = best;
@@ -543,7 +525,7 @@ int simulate(mcnode_t* node, board_t board) {
 		apply_move(cp, rdmv, player);
 		last_move = rdmv;
 		player *= -1;
-		status = get_status(board);
+		status = get_status(cp);
 	}
 	return status;
 }
