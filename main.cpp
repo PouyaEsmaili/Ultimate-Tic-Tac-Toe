@@ -389,13 +389,14 @@ mcnode_t* pick_uct_node(mcnode_t* root) {
 	mcnode_t* best = root->child;
 	mcnode_t* iter = best;
 
-	float upper = best->upper;
+	float lower = best->upper;
 
 	while (iter->next) {
 		iter = iter->next;
-		float upper2 = iter->upper;
-		if (upper2 > upper) {
-			upper = upper2;
+		float logpvis = std::sqrt(log2_32(iter->parent->visits + 1));
+		float lower2 = iter->mean - C * logpvis * iter->invsqrtvisits;
+		if (lower2 > lower) {
+			lower = lower2;
 			best = iter;
 		}
 	}
@@ -518,17 +519,14 @@ int simulate(mcnode_t* node, board_t board) {
 	for (int j = 0; j < 9; j++)
 		cp[j] = board[j];
 	int player = -node->player;
-	int status = get_status(board);
+	int status = get_status(cp);
 	while (status == NOT_OVER) {
-		move_t rdmv = get_random_move(board, last_move, player);
-		apply_move(board, rdmv, player);
+		move_t rdmv = get_random_move(cp, last_move, player);
+		apply_move(cp, rdmv, player);
 		last_move = rdmv;
 		player *= -1;
 		status = get_status(board);
 	}
-
-	for (int j = 0; j < 9; j++)
-		board[j] = cp[j];
 	return status;
 }
 
@@ -609,7 +607,7 @@ move_t pick_best_move(mcnode_t* root) {
 
 int playouts = 0;
 move_t get_best_move(board_t b, move_t last_move, int player) {
-	auto tim = std::clock();
+	auto tim = std::chrono::steady_clock::now();
 	mcnode_t root;
 	root.child = 0;
 	root.mv = last_move;
@@ -618,7 +616,7 @@ move_t get_best_move(board_t b, move_t last_move, int player) {
 	root.mean = 0;
 	for (playouts = 0;; playouts++) {
 		if (playouts % 100 == 0) {
-			if ((1000.0f * (std::clock() - tim)) / CLOCKS_PER_SEC > 96) {
+			if ((1000.0f * (std::chrono::steady_clock::now() - tim)) / CLOCKS_PER_SEC > 96) {
 				break;
 			}
 		}
@@ -655,14 +653,14 @@ void play_CG() {
 		int opponentRow;
 		int opponentCol;
 		cin >> opponentRow >> opponentCol; //cin.ignore();
-		int validActionCount;
-		cin >> validActionCount; cin.ignore();
-
-		for (int i = 0; i < validActionCount; i++) {
-			int row;
-			int col;
-			cin >> row >> col; cin.ignore();
-		}
+//		int validActionCount;
+//		cin >> validActionCount; cin.ignore();
+//
+//		for (int i = 0; i < validActionCount; i++) {
+//			int row;
+//			int col;
+//			cin >> row >> col; cin.ignore();
+//		}
 
 		if (opponentRow != -1) {
 			last_move = opponentRow * 9 + opponentCol;
