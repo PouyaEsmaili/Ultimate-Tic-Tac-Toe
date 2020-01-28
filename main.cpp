@@ -609,8 +609,8 @@ move_t pick_best_move(mcnode_t* root) {
 
 int playouts = 0;
 move_t get_best_move(board_t b, move_t last_move, int player) {
-	auto tim = std::clock();
-	mcnode_t root;
+	auto tim = std::chrono::steady_clock::now();
+    mcnode_t root;
 	root.child = 0;
 	root.mv = last_move;
 	root.player = -player;
@@ -618,7 +618,7 @@ move_t get_best_move(board_t b, move_t last_move, int player) {
 	root.mean = 0;
 	for (playouts = 0;; playouts++) {
 		if (playouts % 100 == 0) {
-			if ((1000.0f * (std::clock() - tim)) / CLOCKS_PER_SEC > 96) {
+			if (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - tim).count() > 96) {
 				break;
 			}
 		}
@@ -689,9 +689,29 @@ void play_CG() {
 	}
 }
 
+void infinite_playouts_from_root() {
+    auto tim = std::chrono::steady_clock::now();
+    board_t b;
+    init_board(b);
+    move_t last_move = NULL_MOVE;
+    mcnode_t root;
+    root.child = 0;
+    root.mv = NULL_MOVE;
+    root.player = 1;
+    root.visits = 0;
+    root.mean = 0;
+    for (playouts = 0;; playouts++) {
+        if (playouts % 10000 == 0) {
+            printf ("playouts: %d, time: %lld\n", playouts,  std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - tim).count());
+        }
+        do_playout(&root, b);
+    }
+}
+
 // Main
 int main()
 {
 	init_precalculations();
+	//infinite_playouts_from_root();
 	play_CG();
 }
