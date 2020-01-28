@@ -385,23 +385,41 @@ void undo_move(board_t board, move_t mov, int player) {
 	board[min_from_move[mov]] -= POW_THREE[maxb] * play_id;
 }
 
+//mcnode_t* pick_uct_node(mcnode_t* root) {
+//	mcnode_t* best = root->child;
+//	mcnode_t* iter = best;
+//
+//	float lower = best->upper;
+//
+//	while (iter->next) {
+//		iter = iter->next;
+//		float logpvis = std::sqrt(log2_32(iter->parent->visits + 1));
+//		float lower2 = iter->mean - C * logpvis * iter->invsqrtvisits;
+//		if (lower2 > lower) {
+//			lower = lower2;
+//			best = iter;
+//		}
+//	}
+//	return best;
+//}
+
 mcnode_t* pick_uct_node(mcnode_t* root) {
 	mcnode_t* best = root->child;
 	mcnode_t* iter = best;
 
-	float lower = best->upper;
+	float upper = best->upper;
 
 	while (iter->next) {
 		iter = iter->next;
-		float logpvis = std::sqrt(log2_32(iter->parent->visits + 1));
-		float lower2 = iter->mean - C * logpvis * iter->invsqrtvisits;
-		if (lower2 > lower) {
-			lower = lower2;
+		float upper2 = iter->upper;
+		if (upper2 > upper) {
+			upper = upper2;
 			best = iter;
 		}
 	}
 	return best;
 }
+
 
 int nodes = 0;
 mcnode_t* expand_nodes(mcnode_t* root, board_t b) {
@@ -596,8 +614,10 @@ move_t pick_best_move(mcnode_t* root) {
 	mcnode_t* child = root->child;
 	mcnode_t* best = child;
 	while (child) {
-		if (child->mean > max) {
-			max = child->mean;
+		float logpvis = std::sqrt(log2_32(child->parent->visits + 1));
+		float lower = child->mean - C * logpvis * child->invsqrtvisits;
+		if (lower > max) {
+			max = lower;
 			best = child;
 		}
 		child = child->next;
@@ -653,14 +673,14 @@ void play_CG() {
 		int opponentRow;
 		int opponentCol;
 		cin >> opponentRow >> opponentCol; //cin.ignore();
-//		int validActionCount;
-//		cin >> validActionCount; cin.ignore();
-//
-//		for (int i = 0; i < validActionCount; i++) {
-//			int row;
-//			int col;
-//			cin >> row >> col; cin.ignore();
-//		}
+		int validActionCount;
+		cin >> validActionCount; cin.ignore();
+
+		for (int i = 0; i < validActionCount; i++) {
+			int row;
+			int col;
+			cin >> row >> col; cin.ignore();
+		}
 
 		if (opponentRow != -1) {
 			last_move = opponentRow * 9 + opponentCol;
