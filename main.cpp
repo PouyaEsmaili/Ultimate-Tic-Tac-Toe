@@ -300,12 +300,13 @@ void init_precalculations() {
 }
 
 // Returns nb of moves
-inline int fast_moves(board_t board, move_t last_move, unsigned long long int& first_part, int& second_part) {
+inline int fast_moves(board_t board, move_t last_move, unsigned long long int& first_part, int& second_part, int& maxboard_play) {
 	int maxboard = max_from_move[last_move];
 	miniboard_t maxboard_board = board[maxboard];
 	int state = state_from_miniboard[maxboard_board];
 
 	if (state == NOT_OVER) {
+	    maxboard_play = maxboard;
 		unsigned long long movesbits = emptybits_from_miniboard[maxboard_board];
 		if (maxboard < 7) {
 			first_part |= movesbits << (9 * maxboard);
@@ -411,13 +412,14 @@ mcnode_t* expand_nodes(mcnode_t* root, board_t b) {
 	unsigned long long int first_part = 0;
 	int second_part = 0;
 	int nb;
+	int maxplay = -1;
 	if (root->mv == NULL_MOVE) {
 		first_part = 0xFFFFFFFFFFFFFFFF;
 		second_part = 0xFFFFFFF;
 		nb = 81;
 	}
 	else {
-		nb = fast_moves(b, root->mv, first_part, second_part);
+		nb = fast_moves(b, root->mv, first_part, second_part, maxplay);
 	}
 	int rd = rand() % nb;
 	int cnt = -1;
@@ -482,32 +484,42 @@ move_t get_random_move(board_t board, move_t last_move, int player) {
 	unsigned long long int first_part = 0;
 	int second_part = 0;
 	int rd;
+	int maxplay = -1;
 	if (last_move == NULL_MOVE) {
 		first_part = 0xFFFFFFFFFFFFFFFF;
 		second_part = 0xFFFFFFF;
 		rd = fast_rand() % 81;
 	}
 	else {
-		rd = fast_rand() % fast_moves(board, last_move, first_part, second_part);
-	}
-	int cnt = 0;
-
-	for (int i = 0; i < 7; i++) {
-		int tmp = cnt;
-		cnt += POPCNT[first_part & 0b111111111];
-		if (cnt > rd) {
-			return movegen_to_move[i * 9 + get_pos(rd - tmp, first_part & 0b111111111)];
-		}
-		first_part >>= 9;
+		rd = fast_rand() % fast_moves(board, last_move, first_part, second_part, maxplay);
 	}
 
-	for (int i = 0; i < 2; i++) {
-		int tmp = cnt;
-		cnt += POPCNT[second_part & 0b111111111];
-		if (cnt > rd) {
-			return movegen_to_move[63 + i * 9 + get_pos(rd - tmp, second_part & 0b111111111)];
-		}
-		second_part >>= 9;
+	if(maxplay == -1) {
+        int cnt = 0;
+
+        for (int i = 0; i < 7; i++) {
+            int tmp = cnt;
+            cnt += POPCNT[first_part & 0b111111111];
+            if (cnt > rd) {
+                return movegen_to_move[i * 9 + get_pos(rd - tmp, first_part & 0b111111111)];
+            }
+            first_part >>= 9;
+        }
+
+        for (int i = 0; i < 2; i++) {
+            int tmp = cnt;
+            cnt += POPCNT[second_part & 0b111111111];
+            if (cnt > rd) {
+                return movegen_to_move[63 + i * 9 + get_pos(rd - tmp, second_part & 0b111111111)];
+            }
+            second_part >>= 9;
+        }
+    } else {
+	    if(maxplay < 7) {
+            return movegen_to_move[maxplay * 9 + get_pos(rd, (first_part >> (9 * maxplay)) & 0b111111111)];
+        } else {
+            return movegen_to_move[maxplay * 9 + get_pos(rd, (second_part >> (9 * (maxplay - 7))) & 0b111111111)];
+	    }
 	}
 
 	return NULL_MOVE;
