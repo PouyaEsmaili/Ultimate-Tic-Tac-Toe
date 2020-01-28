@@ -60,8 +60,6 @@ inline mcnode_t* allocate() {
 	return &MEMORY[MEMORY_PTR];
 }
 
-static unsigned long x = 123456789, y = 362436069, z = 521288629;
-
 const int tab32[32] = {
 		0,  9,  1, 10, 13, 21,  2, 29,
 		11, 14, 16, 18, 22, 25,  3, 30,
@@ -83,18 +81,15 @@ int log2_32(uint32_t value)
 	return tab32[(uint32_t)(value * 0x07C4ACDD) >> 27];
 }
 
-unsigned long fast_rand(void) {          //period 2^96-1
-	unsigned long t;
-	x ^= x << 16;
-	x ^= x >> 5;
-	x ^= x << 1;
-
-	t = x;
-	x = y;
-	y = z;
-	z = t ^ x ^ y;
-
-	return z;
+uint32_t fast_rand(void) {
+    static uint32_t x = 123456789;
+    static uint32_t y = 362436069;
+    static uint32_t z = 521288629;
+    static uint32_t w = 88675123;
+    uint32_t t;
+    t = x ^ (x << 11);
+    x = y; y = z; z = w;
+    return w = w ^ (w >> 19) ^ (t ^ (t >> 8));
 }
 
 // Init
@@ -481,47 +476,41 @@ mcnode_t* expand_nodes(mcnode_t* root, board_t b) {
 }
 
 move_t get_random_move(board_t board, move_t last_move, int player) {
-	unsigned long long int first_part = 0;
-	int second_part = 0;
-	int rd;
-	int maxplay = -1;
 	if (last_move == NULL_MOVE) {
-		first_part = 0xFFFFFFFFFFFFFFFF;
-		second_part = 0xFFFFFFF;
-		rd = fast_rand() % 81;
-	}
-	else {
-		rd = fast_rand() % fast_moves(board, last_move, first_part, second_part, maxplay);
+		return fast_rand() % 81;
 	}
 
-	if(maxplay == -1) {
-        int cnt = 0;
+    int maxboard = max_from_move[last_move];
+    miniboard_t maxboard_board = board[maxboard];
+    int state = state_from_miniboard[maxboard_board];
 
-        for (int i = 0; i < 7; i++) {
-            int tmp = cnt;
-            cnt += POPCNT[first_part & 0b111111111];
-            if (cnt > rd) {
-                return movegen_to_move[i * 9 + get_pos(rd - tmp, first_part & 0b111111111)];
-            }
-            first_part >>= 9;
+    if (state == NOT_OVER) {
+        unsigned long long emptybits = emptybits_from_miniboard[maxboard_board];
+        int size = POPCNT[emptybits];
+        int rd = fast_rand() % size;
+        return movegen_to_move[maxboard * 9 + get_pos(rd, emptybits)];
+    }
+
+    int nb_moves = 0;
+    for (int i = 0; i < 9; i++) {
+        if (state_from_miniboard[board[i]] == NOT_OVER) {
+            nb_moves += nb_emptybits_from_miniboard[board[i]];
         }
+    }
 
-        for (int i = 0; i < 2; i++) {
-            int tmp = cnt;
-            cnt += POPCNT[second_part & 0b111111111];
-            if (cnt > rd) {
-                return movegen_to_move[63 + i * 9 + get_pos(rd - tmp, second_part & 0b111111111)];
-            }
-            second_part >>= 9;
+    int rd = fast_rand() % nb_moves;
+    int cnt = 0;
+
+    for (int i = 0; i < 9; i++) {
+        unsigned long long empties = emptybits_from_miniboard[board[i]];
+        int tmp = cnt;
+        cnt += POPCNT[empties];
+        if (cnt > rd) {
+            return movegen_to_move[i * 9 + get_pos(rd - tmp, empties)];
         }
-    } else {
-	    if(maxplay < 7) {
-            return movegen_to_move[maxplay * 9 + get_pos(rd, (first_part >> (9 * maxplay)) & 0b111111111)];
-        } else {
-            return movegen_to_move[maxplay * 9 + get_pos(rd, (second_part >> (9 * (maxplay - 7))) & 0b111111111)];
-	    }
-	}
+    }
 
+    printf("NULL_MOVE ? ERROR\n");
 	return NULL_MOVE;
 }
 
@@ -609,7 +598,7 @@ move_t pick_best_move(mcnode_t* root) {
 	mcnode_t* best = child;
 	while (child) {
 		float logpvis = std::sqrt(log2_32(child->parent->visits + 1));
-		float lower = child->mean - C * logpvis * child->invsqrtvisits;
+		float lower = child->mean;// - C * logpvis * child->invsqrtvisits;
 		if (lower > max) {
 			max = lower;
 			best = child;
@@ -724,6 +713,6 @@ void infinite_playouts_from_root() {
 int main()
 {
 	init_precalculations();
-	//infinite_playouts_from_root();
+	infinite_playouts_from_root();
 	play_CG();
 }
